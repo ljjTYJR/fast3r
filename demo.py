@@ -77,7 +77,7 @@ def save_depth_maps(preds, indices, output_dir, cam_name):
     return len(preds)
 
 
-def process_cameras(cam_dirs, cam_names, model, device, args, output_dir):
+def process_cameras(cam_dirs, cam_names, model, device, args, output_dir, model_load_time):
     """Process multiple cameras together for better pose estimation."""
     print(f"\n{'='*60}\nProcessing {len(cam_names)} cameras together\n{'='*60}")
 
@@ -190,7 +190,8 @@ def process_cameras(cam_dirs, cam_names, model, device, args, output_dir):
     # Save shared timing info
     timing = {
         'total_images': total_images, 'num_cameras': len(cam_names),
-        'load_time': load_time, 'inference_time': inf_time, 'pose_time': pose_time,
+        'model_load_time': model_load_time, 'load_time': load_time,
+        'inference_time': inf_time, 'pose_time': pose_time,
         'total_time': total, 'avg_per_image': total / total_images
     }
     with open(os.path.join(output_dir, "timing.json"), 'w') as f:
@@ -222,10 +223,11 @@ def main():
     # Load model
     print("\n" + "="*60)
     print("Loading model...")
-    t0 = time.time()
+    model_load_start = time.time()
     model, _ = load_model(args.checkpoint, device=device, is_lightning_checkpoint=args.lightning)
     model.eval()
-    print(f"Model loaded in {time.time()-t0:.1f}s")
+    model_load_time = time.time() - model_load_start
+    print(f"Model loaded in {model_load_time:.1f}s")
 
     # Process all cameras together
     cam_dirs = [os.path.join(args.data_dir, cam) for cam in args.cameras]
@@ -242,7 +244,7 @@ def main():
         print("No valid camera directories found")
         return
 
-    results = process_cameras(valid_dirs, valid_cams, model, device, args, args.output_dir)
+    results = process_cameras(valid_dirs, valid_cams, model, device, args, args.output_dir, model_load_time)
 
     # Save summary
     summary = {
